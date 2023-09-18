@@ -1,7 +1,8 @@
 # Repositório de Aulas de Computação de Alto Desempenho
 
-**CEFET-RJ, Petrópolis - Período 2023.2**
-**Professor: Pedro C. S. Lara**
+CEFET-RJ, Petrópolis - Período 2023.2
+
+Professor: Pedro C. S. Lara
 
 ## Introdução
 
