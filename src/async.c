@@ -10,7 +10,7 @@ typedef struct __list
     struct __list *next;
 } list;
 
-long long int t()
+long long int current_time()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
