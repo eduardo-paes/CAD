@@ -1,6 +1,7 @@
 /* Código do algoritmo de regressão linear simples
  * Autor: Eduardo Paes Silva
  * Data: 11/09/2023
+ * Código feito em aula baseado no código do professor Pedro. C. S. Lara
  * ----------------------------------------------
  * Compilar: gcc -Xpreprocessor -fopenmp -lomp reg.c -Ofast
  * ----------------------------------------------

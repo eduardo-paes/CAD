@@ -1,6 +1,7 @@
 /* Código para resolução de sistemas lineares utilizando eliminação de Gauss
  * Autor: Eduardo Paes Silva
  * Data: 24/09/2023
+ * Código feito em aula baseado no código do professor Pedro. C. S. Lara
  * ----------------------------------------------
  * Compilar: gcc -Xpreprocessor -fopenmp -lomp elim_gauss.c -Ofast
  * ----------------------------------------------
@@ -29,7 +30,7 @@ void gauss_elim(double **A, double *b, int n)
     double piv;
     for (int k = 0; k < n - 2; k++)
     {
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
         for (int i = k + 1; i < n - 1; i++)
         {
             piv = A[i][k] / A[k][k];
@@ -50,7 +51,7 @@ void solve_sup(double **A, double *b, int n)
     double sum;
 
     // Encontra os valores de x que satisfazem a equação
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
     for (int i = n - 1; i >= 0; i--)
     {
         sum = 0.0;
@@ -62,15 +63,15 @@ void solve_sup(double **A, double *b, int n)
     }
 
     // Imprime a validação da solução do sistema
-    for (int i = 0; i < n; i++)
-    {
-        sum = 0.0;
-        for (int j = i; j < n; j++)
-        {
-            sum += A[i][j] * x[j];
-        }
-        printf(" S = %lf | b[%d] = %lf\n", sum, i, b[i]);
-    }
+    // for (int i = 0; i < n; i++)
+    // {
+    //     sum = 0.0;
+    //     for (int j = i; j < n; j++)
+    //     {
+    //         sum += A[i][j] * x[j];
+    //     }
+    //     printf(" S = %lf | b[%d] = %lf\n", sum, i, b[i]);
+    // }
     free(x);
 }
 

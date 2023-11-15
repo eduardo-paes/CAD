@@ -3,6 +3,7 @@
         ".sequelizerc": "javascript",
         ".stylelintrc": "json",
         ".prettierrc": "json",
-        "time.h": "c"
+        "time.h": "c",
+        "iostream": "cpp"
     }
 }

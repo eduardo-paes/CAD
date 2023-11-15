@@ -1,6 +1,7 @@
 /* Código para multiplicação de matrizes
  * Autor: Eduardo Paes Silva
  * Data: 15/09/2023
+ * Código feito em aula baseado no código do professor Pedro. C. S. Lara
  * ----------------------------------------------
  * Compilar: gcc -Xpreprocessor -fopenmp -lomp mulmat.c -lpthread -Ofast
  * ----------------------------------------------
