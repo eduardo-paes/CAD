@@ -31,7 +31,7 @@ __global__ void vector_sum(double *x, double *output, int n)
 
    int gid = blockIdx.x * blockDim.x + threadIdx.x;
    int lid = threadIdx.x;
-   int block_size = blockDim.x;
+   int blockSize = blockDim.x;
 
    __shared__ double partial_sum[BLOCKSIZE];
 
@@ -39,7 +39,7 @@ __global__ void vector_sum(double *x, double *output, int n)
 
    __syncthreads(); // block barrier
 
-   for (int i = block_size / 2; i > 0; i /= 2)
+   for (int i = blockSize / 2; i > 0; i /= 2)
    {
       if (lid < i)
       {
