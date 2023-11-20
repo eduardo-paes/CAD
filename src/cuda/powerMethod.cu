@@ -15,6 +15,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
             exit(code);
     }
 }
+
+#define MATRIX_SIZE 2048
 #pragma endregion
 
 #pragma region Utils
@@ -135,8 +137,27 @@ __global__ void matMulVec_GPU(double *d_A, double *d_b, double *d_c, int N)
 // Função para calcular a norma de um vetor
 __global__ void vecNorm_GPU(double *d_b, double *d_norm_b, int N)
 {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    // int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    // int lid = threadIdx.x;
+    // int blockSize = blockDim.x;
 
+    // __shared__ double partialSum[MATRIX_SIZE];
+
+    //  // Calcula a soma dos quadrados dos elementos do vetor
+    // partialSum[lid] = (gid < N) ? (d_b[gid] * d_b[gid]) : 0.0;
+    // __syncthreads();
+
+    // // Redução
+    // for (int i = blockSize / 2; i > 0; i /= 2)
+    // {
+    //     if (lid < i) partialSum[lid] += partialSum[lid + i];
+    //     __syncthreads();
+    // }
+
+    // // Retorna a raiz quadrada da soma
+    // if (lid == 0) *d_norm_b = sqrt(partialSum[0]);
+
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid == 0) {
         // Calcula a soma dos quadrados dos elementos do vetor e retorna a raiz quadrada da soma
         double s = 0.0;
@@ -184,7 +205,7 @@ void powerMethod_GPU(double *h_A, int niters, int N)
     GCE(cudaMemcpy(d_b, h_b, N * sizeof(double), cudaMemcpyHostToDevice));
     GCE(cudaMemcpy(d_norm_b, &h_norm_b, sizeof(double), cudaMemcpyHostToDevice));
 
-    // Define block and thread dimensions
+    // Definição dos blocos e dimensão das threads
     const int threadsPerBlock = 256;
     const int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
 
@@ -223,7 +244,7 @@ void powerMethod_GPU(double *h_A, int niters, int N)
 int main(int argc, char **argv)
 {
     // Parâmetros gerais
-    const int N = 2048;
+    const int N = MATRIX_SIZE;
     const int niters = 100;
 
     // Inicializa a matriz A
