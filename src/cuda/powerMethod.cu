@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <iostream>
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
@@ -14,11 +15,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
             exit(code);
     }
 }
-
-#define NUM_THREADS 4
-#define MATRIX_DIM 256
-#define NUM_ITER 1
-
 #pragma endregion
 
 #pragma region Utils
@@ -36,7 +32,7 @@ double * createMatrix(int N)
     double* A = (double*)malloc(N * N * sizeof(double));
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
-            A[i * N + j] = (rand() % 10000) / 10000.;
+            A[i * N + j] = (rand() % 100) / 100.;
         }
     }
     return A;
@@ -67,17 +63,13 @@ void matMulVec(double *A, double *b, int N)
 // Função para calcular a norma de um vetor
 void vecNorm(double *b, double *norm_b, int N)
 {
-    // Calcula a soma dos quadrados dos elementos do vetor
-    *norm_b = 0.0;
+    // Calcula a soma dos quadrados dos elementos do vetor e retorna a raiz quadrada da soma
+    double s = 0.0;
     for (int i = 0; i < N; i++)
-    {
-        *norm_b += b[i] * b[i];
-    }
+        s += b[i] * b[i];
+    *norm_b = sqrt(s);
 
-    // Retorna a raiz quadrada da soma
-    *norm_b = sqrt(*norm_b);
-
-    printf("Norm: %f\n", *norm_b);
+    // printf("Norm: %f\n", *norm_b);
 }
 
 // Função para normalizar um vetor
@@ -124,62 +116,47 @@ double powerMethod_CPU(double *A, int niters, int N)
 // Função para multiplicar uma matriz por um vetor
 __global__ void matMulVec_GPU(double *d_A, double *d_b, double *d_c, int N)
 {
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     // Multiplica a matriz A pelo vetor b
-    if (row < N && col == 0)
-    {
-        double s = 0.0;
+    double s = 0.0;
+    if (tid < N) {
         for (int j = 0; j < N; j++)
-            s += d_A[row * N + j] * d_b[j];
-        d_c[row] = s;
-        // printf("b[%d] = %f\n", row, d_c[row]);
+            s += d_A[tid * N + j] * d_b[j];
+        // printf("b[%d] = %f\n", tid, s);
     }
     __syncthreads();
 
     // Copia o resultado para o vetor b
-    if (row < N && col == 0) d_b[row] = d_c[row];
+    if (tid < N) d_b[tid] = s;
     __syncthreads();
 }
 
 // Função para calcular a norma de um vetor
-__global__ void vecNorm_GPU(double *d_b, double *d_norm, int N)
+__global__ void vecNorm_GPU(double *d_b, double *d_norm_b, int N)
 {
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-    int lid = threadIdx.x;
-    int bdm = blockDim.x;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    __shared__ double psum[MATRIX_DIM];
-
-    psum[lid] = gid < N ? d_b[gid] * d_b[gid] : 0.0;
-
-    __syncthreads();
-
-    for (int i = bdm / 2; i > 0; i /= 2)
-    {
-        if (lid < i) psum[lid] += psum[lid + i];
-        __syncthreads();
-    }
-
-    if (row == 0 && col == 0)
-    {
-        atomicAdd(d_norm, sqrt(psum[0]));
-        printf("Norm: %f\n", *d_norm);
+    if (tid == 0) {
+        // Calcula a soma dos quadrados dos elementos do vetor e retorna a raiz quadrada da soma
+        double s = 0.0;
+        for (int i = 0; i < N; i++)
+            s += d_b[i] * d_b[i];
+        *d_norm_b = sqrt(s);
+        // printf("Norm: %f\n", *d_norm_b);
     }
     __syncthreads();
 }
 
 // Função para normalizar um vetor
-__global__ void vecNormalize_GPU(double *d_b, double *d_norm, int N)
+__global__ void vecNormalize_GPU(double *d_b, double *d_norm_b, int N)
 {
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-
     // Divide o vetor pelo valor da norma
-    if (row < N && col == 0) d_b[row] /= *d_norm;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid < N) {
+        d_b[tid] /= *d_norm_b;
+    }
     __syncthreads();
 }
 
@@ -193,17 +170,13 @@ void powerMethod_GPU(double *h_A, int niters, int N)
     // Declara a norma de b do host
     double h_norm_b = 0.0;
 
-    // Define os tamanhos dos vetores e matrizes que serão instanciados
-    double size_mat = N * N * sizeof(double);
-    double size_vec = N * sizeof(double);
-
     // Declara a matriz e os vetores do device
     double *d_A, *d_b, *d_c, *d_norm_b;
 
     // Aloca memória para matriz e vetor na GPU
-    GCE(cudaMalloc((void **)&d_A, size_mat));
-    GCE(cudaMalloc((void **)&d_b, size_vec));
-    GCE(cudaMalloc((void **)&d_c, size_vec));
+    GCE(cudaMalloc((void **)&d_A, N * N * sizeof(double)));
+    GCE(cudaMalloc((void **)&d_b, N * sizeof(double)));
+    GCE(cudaMalloc((void **)&d_c, N * sizeof(double)));
     GCE(cudaMalloc((void **)&d_norm_b, sizeof(double)));
 
     // Transfere dados do host para o device | Params: dest, src, count, kind
@@ -211,39 +184,38 @@ void powerMethod_GPU(double *h_A, int niters, int N)
     GCE(cudaMemcpy(d_b, h_b, N * sizeof(double), cudaMemcpyHostToDevice));
     GCE(cudaMemcpy(d_norm_b, &h_norm_b, sizeof(double), cudaMemcpyHostToDevice));
 
-    // Define o tamanho dos blocos e da grid
-    int NUM_BLOCKS = (N + NUM_THREADS - 1) / NUM_THREADS;
-
-    // Define structs das threads e blocos
-    dim3 threads(NUM_THREADS, NUM_THREADS);
-    dim3 blocks(NUM_BLOCKS, NUM_BLOCKS);
+    // Define block and thread dimensions
+    const int threadsPerBlock = 256;
+    const int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
 
     for (int i = 0; i < niters; i++)
     {
         // b rcebe o resultado de Ab
-        matMulVec_GPU<<<blocks, threads>>>(d_A, d_b, d_c, N);
+        matMulVec_GPU<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_b, d_c, N);
         cudaDeviceSynchronize();
 
         // Calcula a norma de b
-        vecNorm_GPU<<<blocks, threads>>>(d_b, d_norm_b, N);
+        vecNorm_GPU<<<blocksPerGrid, threadsPerBlock>>>(d_b, d_norm_b, N);
         cudaDeviceSynchronize();
 
         // Normaliza b
-        vecNormalize_GPU<<<blocks, threads>>>(d_b, d_norm_b, N);
+        vecNormalize_GPU<<<blocksPerGrid, threadsPerBlock>>>(d_b, d_norm_b, N);
         cudaDeviceSynchronize();
     }
 
     // Copia resultados para o host
-    GCE(cudaMemcpy(h_b, d_b, size_vec, cudaMemcpyDeviceToHost));
+    GCE(cudaMemcpy(h_b, d_b, N * sizeof(double), cudaMemcpyDeviceToHost));
 
     // Retorna o autovalor dominante
     printf("Result: %f\n", h_b[0]);
 
     // Libera memória
-    cudaFree(d_A);
-    cudaFree(d_b);
     free(h_A);
     free(h_b);
+    cudaFree(d_A);
+    cudaFree(d_b);
+    cudaFree(d_c);
+    cudaFree(d_norm_b);
 }
 #pragma endregion
 
@@ -251,8 +223,8 @@ void powerMethod_GPU(double *h_A, int niters, int N)
 int main(int argc, char **argv)
 {
     // Parâmetros gerais
-    int N = MATRIX_DIM;
-    int niters = NUM_ITER;
+    const int N = 2048;
+    const int niters = 100;
 
     // Inicializa a matriz A
     double *A = createMatrix(N);
